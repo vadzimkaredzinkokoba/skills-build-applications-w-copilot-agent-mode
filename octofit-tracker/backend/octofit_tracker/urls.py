@@ -14,6 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+import os
+
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.response import Response
@@ -37,19 +39,32 @@ router.register(r'activities', ActivityViewSet)
 router.register(r'workouts', WorkoutViewSet)
 router.register(r'leaderboard', LeaderboardViewSet)
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
-    path('', lambda request: api_root(request)),
-]
+
+codespace_name = os.environ.get('CODESPACE_NAME')
+if codespace_name:
+    base_url = f"https://{codespace_name}-8000.app.github.dev"
+else:
+    base_url = "http://localhost:8000"
 
 
 @api_view(['GET'])
 def api_root(request, format=None):
+    def absolute_api_url(url_name: str) -> str:
+        path_only = reverse(url_name, request=None, format=format)
+        return f"{base_url}{path_only}"
+
     return Response({
-        'teams': reverse('team-list', request=request, format=format),
-        'users': reverse('user-list', request=request, format=format),
-        'activities': reverse('activity-list', request=request, format=format),
-        'workouts': reverse('workout-list', request=request, format=format),
-        'leaderboard': reverse('leaderboard-list', request=request, format=format),
+        'teams': absolute_api_url('team-list'),
+        'users': absolute_api_url('user-list'),
+        'activities': absolute_api_url('activity-list'),
+        'workouts': absolute_api_url('workout-list'),
+        'leaderboard': absolute_api_url('leaderboard-list'),
     })
+
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', api_root, name='root'),
+    path('api/', api_root, name='api-root'),
+    path('api/', include(router.urls)),
+]
